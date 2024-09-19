@@ -28,8 +28,5 @@ RUN pip install python-multipart
 # Copier le code de l'application dans le conteneur
 COPY . .
 
-# Exposer le port de l'API FastAPI
-EXPOSE 8000
-
 # Lancer l'application FastAPI avec Uvicorn
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,0 +1,16 @@
+services:
+  uptime-kuma:
+    image: ghcr.io/luucfr/whisper:main
+    platform: linux/x86_64
+    volumes:
+      - ./data:/app/data
+    ports:
+      - 8000:8000
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
