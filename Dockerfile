@@ -18,7 +18,7 @@ RUN pip install torch --index-url https://download.pytorch.org/whl/cu118
 
 # Copier le fichier requirements.txt et installer les dépendances Python
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 
 # Installer Whisper depuis le dépôt Git pour garantir la compatibilité GPU
 RUN pip install git+https://github.com/openai/whisper.git
