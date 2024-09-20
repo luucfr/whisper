@@ -30,10 +30,8 @@ RUN pip install git+https://github.com/openai/whisper.git
 
 RUN pip install python-multipart
 
-EXPOSE 8000
-
 # Copier le code de l'application dans le conteneur
 COPY . .
 
 # Lancer l'application FastAPI avec Uvicorn
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8081"]
