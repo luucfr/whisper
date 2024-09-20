@@ -5,10 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    platform: linux/x86_64
-    ports:
-      - 8000:8000
     restart: unless-stopped
+    network_mode: host
     deploy:
       resources:
         reservations:
