@@ -13,6 +13,11 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
+RUN rm -rf /usr/share/dotnet
+RUN rm -rf /opt/ghc
+RUN rm -rf "/usr/local/share/boost"
+RUN rm -rf "$AGENT_TOOLSDIRECTORY"
+
 # Installer PyTorch avec support CUDA (cu118 est compatible avec CUDA 11.8)
 RUN pip install torch --index-url https://download.pytorch.org/whl/cu118
 
