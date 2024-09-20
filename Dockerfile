@@ -30,6 +30,8 @@ RUN pip install git+https://github.com/openai/whisper.git
 
 RUN pip install python-multipart
 
+EXPOSE 8000
+
 # Copier le code de l'application dans le conteneur
 COPY . .
 
