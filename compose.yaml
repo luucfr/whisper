@@ -5,8 +5,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "8081:80"
     restart: unless-stopped
     deploy:
       resources:
@@ -15,3 +13,13 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    networks:
+      - traefik-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.openwebui.rule=Host(`whisper`)"
+      - "traefik.http.services.openwebui.loadbalancer.server.port=8081"
+
+networks:
+  traefik-net:
+    external: true
