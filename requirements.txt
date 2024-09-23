@@ -1,4 +1,3 @@
-openai-whisper
 fastapi
 uvicorn
 pydub
