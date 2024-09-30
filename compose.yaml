@@ -1,24 +1,45 @@
 version: '3.9'
 
 services:
-  whisper-api:
+  whisper-api-1:
     build:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
     deploy:
+      replicas: 1
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: all
               capabilities: [gpu]
+              device_ids: ["0"]  # Utilisation du GPU 0
     networks:
       - traefik-net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.openwebui.rule=Host(`whisper`)"
-      - "traefik.http.services.openwebui.loadbalancer.server.port=8081"
+      - "traefik.http.routers.whisper.rule=Host(`sns-ia.goat-woodpecker.ts.net`)"
+      - "traefik.http.services.whisper.loadbalancer.server.port=8081"
+  
+  whisper-api-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+              device_ids: ["1"]  # Utilisation du GPU 1
+    networks:
+      - traefik-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.whisper.rule=Host(`sns-ia.goat-woodpecker.ts.net`)"
+      - "traefik.http.services.whisper.loadbalancer.server.port=8081"
 
 networks:
   traefik-net:
