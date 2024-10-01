@@ -46,7 +46,7 @@ class AudioProcessor:
         return result["segments"]
 
     def merge_transcriptions(self, speaker_segments, transcription_segments):
-        """Merge diarization and transcription, avoiding duplicates."""
+        """Merge diarization and transcription without removing duplicates."""
         speaker_mapping = {}
         speaker_count = 1
         merged_transcription = []
@@ -68,19 +68,13 @@ class AudioProcessor:
         return "\n".join(merged_transcription)
 
     def extract_segment_text(self, start, end, transcription_segments):
-        """Extract unique text segments within the given time range."""
-        segment_text = set()
-        previous_end = None
-
+        """Extract text segments within the given time range."""
+        segment_text = []
         for t in transcription_segments:
             if t['start'] < end and t['end'] > start:
-                # Ignore overlapping segments
-                if previous_end is not None and t['start'] < previous_end + 0.5:
-                    continue
-                previous_end = t['end']
-                segment_text.add(t['text'])
+                segment_text.append(t['text'])
 
-        return list(segment_text)
+        return segment_text
 
     def process_file(self, wav_file):
         """Process the audio file and return the transcription."""
