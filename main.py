@@ -46,10 +46,11 @@ class AudioProcessor:
         return result["segments"]
 
     def merge_transcriptions(self, speaker_segments, transcription_segments):
-        """Merge diarization and transcription without removing duplicates."""
+        """Merge diarization and transcription with repetition filtering."""
         speaker_mapping = {}
         speaker_count = 1
         merged_transcription = []
+        last_segment_text = None
 
         for segment in speaker_segments:
             start, end, speaker = segment["start"], segment["end"], segment["speaker"]
@@ -61,9 +62,13 @@ class AudioProcessor:
             speaker_label = speaker_mapping[speaker]
             segment_text = self.extract_segment_text(start, end, transcription_segments)
 
-            if segment_text:
+            # Check if this segment is similar to the last one and skip if necessary
+            if segment_text and segment_text != last_segment_text:
                 final_segment = f"{speaker_label}: {' '.join(segment_text)}"
                 merged_transcription.append(final_segment)
+                last_segment_text = segment_text
+
+    return "\n".join(merged_transcription)
 
         return "\n".join(merged_transcription)
 
