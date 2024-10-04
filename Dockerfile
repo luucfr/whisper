@@ -16,14 +16,18 @@ RUN apt-get update && apt-get install -y \
 # Installer PyTorch avec support CUDA (cu118 est compatible avec CUDA 11.8)
 RUN pip install torch --index-url https://download.pytorch.org/whl/cu118
 
+# Installer TorchAudio compatible avec CUDA 11.8
+RUN pip install torchaudio --index-url https://download.pytorch.org/whl/cu118
+
 # Copier le fichier requirements.txt et installer les dépendances Python
-COPY requirements.txt .
+COPY requirements.txt ./
 RUN pip install -r requirements.txt
 
 # Installer Whisper depuis le dépôt Git pour garantir la compatibilité GPU
 RUN pip install git+https://github.com/openai/whisper.git
 
-RUN pip install python-multipart
+# Installer pyannote-audio et autres dépendances
+RUN pip install python-multipart pyannote-audio
 
 # Copier le code de l'application dans le conteneur
 COPY . .

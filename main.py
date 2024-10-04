@@ -7,7 +7,10 @@ import queue
 import torch
 from pyannote.audio import Pipeline
 from pydub import AudioSegment
+from fastapi.middleware.cors import CORSMiddleware
 
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
 
 class AudioProcessor:
     def __init__(self):
@@ -89,6 +92,15 @@ class AudioProcessor:
 # Initialize the FastAPI app
 app = FastAPI()
 audio_processor = AudioProcessor()
+
+# Ajout de CORS Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Autoriser toutes les origines (ou spécifie une origine)
+    allow_credentials=True,
+    allow_methods=["*"],  # Autoriser toutes les méthodes (GET, POST, etc.)
+    allow_headers=["*"],  # Autoriser tous les en-têtes
+)
 
 # Worker function to handle requests
 def worker():
