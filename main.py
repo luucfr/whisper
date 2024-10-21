@@ -8,8 +8,6 @@ import torch
 from pyannote.audio import Pipeline
 from pydub import AudioSegment
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
-from cytoolz import sliding_window
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
@@ -50,33 +48,12 @@ class AudioProcessor:
         result = self.model.transcribe(wav_file, word_timestamps=True)
         return result["segments"]
 
-# Fonction pour post-traiter les supervisions et éviter les chevauchements
-    def _postprocess_timestamps(supervisions: List[SupervisionSegment]):
-        """
-        Whisper tends to have a lot of overlapping segments due to inaccurate end timestamps.
-        Under a strong assumption that the input speech is non-overlapping, we can fix that
-        by always truncating to the start timestamp of the next segment.
-        """
-        if len(supervisions) < 2:
-            return supervisions
-        out = []
-        for cur, nxt in sliding_window(2, supervisions):
-            if cur.end > nxt.start:
-                cur = cur.trim(end=nxt.start)
-            out.append(cur)
-        out.append(nxt)
-        return out
-
-    # Fonction pour fusionner la transcription et la diarisation
     def merge_transcriptions(self, speaker_segments, transcription_segments):
         """Merge diarization and transcription with repetition filtering."""
         speaker_mapping = {}
         speaker_count = 1
         merged_transcription = []
         last_segment_text = None
-
-        # Post-process speaker segments to avoid overlapping
-        speaker_segments = _postprocess_timestamps(speaker_segments)
 
         for segment in speaker_segments:
             start, end, speaker = segment["start"], segment["end"], segment["speaker"]

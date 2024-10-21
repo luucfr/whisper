@@ -6,6 +6,8 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    expose:
+      - 8081:8081
     deploy:
       replicas: 1
       resources:
@@ -13,54 +15,4 @@ services:
           devices:
             - driver: nvidia
               capabilities: [gpu]
-              device_ids: ["0"]  # Utilisation du GPU 0
-    networks:
-      - traefik-net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.whisper.rule=Host(`192.168.252.12`)"
-      - "traefik.http.services.whisper.loadbalancer.server.port=8081"
-
-  whisper-api-2:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    deploy:
-      replicas: 1
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              capabilities: [gpu]
-              device_ids: ["1"]  # Utilisation du GPU 1
-    networks:
-      - traefik-net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.whisper.rule=Host(`192.168.252.12`)"
-      - "traefik.http.services.whisper.loadbalancer.server.port=8081"
-
-  whisper-api-3:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    deploy:
-      replicas: 1
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              capabilities: [gpu]
-              device_ids: ["2"]  # Utilisation du GPU 1
-    networks:
-      - traefik-net
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.whisper.rule=Host(`192.168.252.12`)"
-      - "traefik.http.services.whisper.loadbalancer.server.port=8081"
-
-networks:
-  traefik-net:
-    external: true
+              device_ids: ["0"]
