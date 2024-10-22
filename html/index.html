@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html lang="fr">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API de Transcription - Historique</title>
+    <title>API de Transcription</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -15,63 +14,16 @@
             min-height: 100vh;
         }
 
-        .main-layout {
-            display: grid;
-            grid-template-columns: 300px 1fr;
-            gap: 20px;
-            max-width: 1400px;
+        .container {
+            max-width: 1200px;
             margin: 0 auto;
-        }
-
-        .sidebar {
-            background-color: #1e1e1e;
-            border-radius: 8px;
             padding: 20px;
-            height: calc(100vh - 40px);
-            position: sticky;
-            top: 20px;
         }
 
         .main-content {
             background-color: #1e1e1e;
             border-radius: 8px;
             padding: 20px;
-            min-height: calc(100vh - 40px);
-        }
-
-        .history-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            overflow-y: auto;
-            max-height: calc(100vh - 200px);
-        }
-
-        .history-item {
-            padding: 10px;
-            margin-bottom: 10px;
-            background-color: #2c2c2c;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        .history-item:hover {
-            background-color: #3c3c3c;
-        }
-
-        .history-item.active {
-            background-color: #0070f3;
-            color: white;
-        }
-
-        .history-item-date {
-            font-size: 0.8em;
-            color: #888;
-        }
-
-        .history-item.active .history-item-date {
-            color: #e0e0e0;
         }
 
         .drag-drop-zone {
@@ -200,24 +152,10 @@
             background-color: #444;
             cursor: not-allowed;
         }
-
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: #888;
-        }
     </style>
 </head>
-
 <body>
-    <div class="main-layout">
-        <div class="sidebar">
-            <h2>Historique</h2>
-            <div id="historyList" class="history-list">
-                <div class="empty-state">Aucune transcription</div>
-            </div>
-        </div>
-
+    <div class="container">
         <div class="main-content">
             <h1>API - Whisper Transcription</h1>
             
@@ -251,55 +189,6 @@
         const OLLAMA_URL = 'http://192.168.252.12:11434/api/generate';
         
         let currentPollingInterval;
-        let transcriptionHistory = [];
-
-        // Chargement initial de l'historique depuis le localStorage
-        function loadHistory() {
-            const savedHistory = localStorage.getItem('transcriptionHistory');
-            if (savedHistory) {
-                transcriptionHistory = JSON.parse(savedHistory);
-                updateHistoryUI();
-            }
-        }
-
-        // Mise à jour de l'affichage de l'historique
-        function updateHistoryUI() {
-            const historyList = document.getElementById('historyList');
-            if (transcriptionHistory.length === 0) {
-                historyList.innerHTML = '<div class="empty-state">Aucune transcription</div>';
-                return;
-            }
-
-            historyList.innerHTML = transcriptionHistory
-                .sort((a, b) => b.timestamp - a.timestamp)
-                .map(item => `
-                    <div class="history-item" data-id="${item.id}">
-                        <div>${item.filename}</div>
-                        <div class="history-item-date">${new Date(item.timestamp).toLocaleString()}</div>
-                    </div>
-                `)
-                .join('');
-
-            // Ajout des événements click sur les éléments de l'historique
-            document.querySelectorAll('.history-item').forEach(item => {
-                item.addEventListener('click', () => loadTranscriptionFromHistory(item.dataset.id));
-            });
-        }
-
-        // Chargement d'une transcription depuis l'historique
-        function loadTranscriptionFromHistory(id) {
-            const transcription = transcriptionHistory.find(item => item.id === id);
-            if (transcription) {
-                document.querySelectorAll('.history-item').forEach(item => {
-                    item.classList.remove('active');
-                    if (item.dataset.id === id) {
-                        item.classList.add('active');
-                    }
-                });
-                displayTranscription(transcription.transcription);
-                displaySummary(transcription.summary);
-            }
-        }
 
         // Gestion du drag & drop
         const dragDropZone = document.getElementById('dragDropZone');
@@ -346,7 +235,7 @@
 
                 const result = await response.json();
                 if (result.file_id) {
-                    handleTranscription(result.file_id, file.name);
+                    handleTranscription(result.file_id);
                 } else {
                     throw new Error('Pas de file_id reçu');
                 }
@@ -427,7 +316,7 @@
             }
         }
 
-        async function handleTranscription(fileId, filename) {
+        async function handleTranscription(fileId) {
             let attempts = 0;
             const maxAttempts = 60;
 
@@ -448,23 +337,6 @@
                         try {
                             const summary = await generateSummary(status.transcription);
                             displaySummary(summary);
-
-                            // Sauvegarde dans l'historique
-                            const transcriptionData = {
-                                id: file,
-                                filename: filename,
-                                timestamp: Date.now(),
-                                transcription: status.transcription,
-                                summary: summary
-                            };
-                            
-                            transcriptionHistory = [transcriptionData, ...transcriptionHistory.slice(0, 19)]; // Garde les 20 dernières transcriptions
-                            localStorage.setItem('transcriptionHistory', JSON.stringify(transcriptionHistory));
-                            updateHistoryUI();
-                            
-                            // Sélectionne automatiquement la nouvelle transcription
-                            document.querySelector(`.history-item[data-id="${fileId}"]`).classList.add('active');
-
                         } catch (error) {
                             displayError('Erreur lors de la génération du résumé');
                         }
@@ -481,15 +353,12 @@
             }, 5000);
         }
 
-        // Gestion du nettoyage lors de la fermeture de la page
+        // Nettoyage lors de la fermeture de la page
         window.addEventListener('beforeunload', () => {
             if (currentPollingInterval) {
                 clearInterval(currentPollingInterval);
             }
         });
-
-        // Chargement initial de l'historique
-        loadHistory();
     </script>
 </body>
 </html>
