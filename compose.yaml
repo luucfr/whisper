@@ -53,6 +53,21 @@ services:
     volumes:
       - ./html:/usr/share/nginx/html
 
+  traefik:
+    image: traefik:v2.10  # Version mise à jour
+    container_name: traefik
+    command:
+      - "--api.insecure=true"  # À sécuriser en production ou désactiver
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"    # HTTP
+      - "8080:8080"  # API Traefik (insecure, attention en prod)
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"  # Nécessaire pour que Traefik puisse détecter les services Docker
+    networks:
+      - traefik-net
+
 networks:
   traefik-net:
     external: true
