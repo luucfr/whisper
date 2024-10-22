@@ -12,6 +12,9 @@ import logging
 from contextlib import contextmanager
 import shutil
 
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -31,7 +34,7 @@ class AudioProcessor:
         try:
             self.model = whisper.load_model("large")
             self.pipeline = Pipeline.from_pretrained(
-                "pyannote/segmentation-3.0",
+                "nairaxo/speaker-segmentation-fine-tuned-ary",
                 use_auth_token="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"
             )
             self.pipeline.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
