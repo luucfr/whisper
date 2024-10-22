@@ -5,28 +5,26 @@ import os
 import uuid
 import threading
 import queue
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import torch
 from pyannote.audio import Pipeline
 import logging
 from contextlib import contextmanager
+import shutil
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Configure CUDA settings
-torch.backends.cuda.matmul.allow_tf32 = True
-torch.backends.cudnn.allow_tf32 = True
-
 class AudioProcessor:
     def __init__(self):
         self.model: Optional[whisper.Whisper] = None
         self.pipeline: Optional[Pipeline] = None
-        self.request_queue: queue.Queue = queue.Queue()
         self.results: Dict[str, str] = {}
         self.lock = threading.Lock()
+        self.temp_dir = "temp_audio_files"
         self.initialize_models()
+        self.ensure_temp_directory()
 
     def initialize_models(self) -> None:
         """Initialize Whisper and Pyannote models."""
@@ -41,21 +39,38 @@ class AudioProcessor:
             logger.error(f"Failed to initialize models: {e}")
             raise RuntimeError("Failed to initialize audio processing models")
 
-    @contextmanager
-    def handle_audio_file(self, file: UploadFile) -> str:
-        """Context manager for handling audio file processing and cleanup."""
-        temp_filename = f"temp_audio_{uuid.uuid4()}.wav"
-        try:
-            yield temp_filename
-        finally:
-            if os.path.exists(temp_filename):
-                try:
-                    os.remove(temp_filename)
-                except Exception as e:
-                    logger.error(f"Failed to remove temporary file {temp_filename}: {e}")
+    def ensure_temp_directory(self) -> None:
+        """Ensure temporary directory exists."""
+        if not os.path.exists(self.temp_dir):
+            os.makedirs(self.temp_dir)
+            logger.info(f"Created temporary directory: {self.temp_dir}")
 
-    async def process_audio(self, file: UploadFile) -> str:
-        """Process the uploaded audio file."""
+    def get_temp_filepath(self, file_id: str) -> str:
+        """Generate temporary file path."""
+        return os.path.join(self.temp_dir, f"{file_id}.wav")
+
+    async def save_upload_file(self, upload_file: UploadFile, file_path: str) -> None:
+        """Save uploaded file to temporary location."""
+        try:
+            with open(file_path, "wb") as f:
+                shutil.copyfileobj(upload_file.file, f)
+        except Exception as e:
+            logger.error(f"Failed to save upload file: {e}")
+            raise RuntimeError(f"Failed to save upload file: {str(e)}")
+        finally:
+            upload_file.file.close()
+
+    def cleanup_file(self, file_path: str) -> None:
+        """Clean up temporary file."""
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                logger.info(f"Cleaned up file: {file_path}")
+        except Exception as e:
+            logger.error(f"Failed to cleanup file {file_path}: {e}")
+
+    async def process_audio(self, file: UploadFile) -> Tuple[str, str]:
+        """Process the uploaded audio file and return file_id and path."""
         extension = file.filename.split('.')[-1].lower()
         
         if extension not in ['wav', 'mp3'] and file.content_type not in ['audio/wav', 'audio/mpeg']:
@@ -64,14 +79,17 @@ class AudioProcessor:
                 detail="Unsupported format. Please provide a MP3 or WAV file."
             )
 
-        with self.handle_audio_file(file) as wav_filename:
-            content = await file.read()
-            with open(wav_filename, "wb") as f:
-                f.write(content)
-            return wav_filename
+        file_id = str(uuid.uuid4())
+        file_path = self.get_temp_filepath(file_id)
+        await self.save_upload_file(file, file_path)
+        
+        return file_id, file_path
 
     def diarize_audio(self, wav_file: str) -> List[Dict]:
         """Perform speaker diarization on the audio file."""
+        if not os.path.exists(wav_file):
+            raise FileNotFoundError(f"Audio file not found: {wav_file}")
+            
         try:
             diarization = self.pipeline({"uri": wav_file, "audio": wav_file})
             return [
@@ -88,6 +106,9 @@ class AudioProcessor:
 
     def transcribe_audio(self, wav_file: str) -> List[Dict]:
         """Transcribe the audio file using Whisper."""
+        if not os.path.exists(wav_file):
+            raise FileNotFoundError(f"Audio file not found: {wav_file}")
+            
         try:
             result = self.model.transcribe(wav_file, word_timestamps=True)
             return result["segments"]
@@ -114,7 +135,6 @@ class AudioProcessor:
 
             if segment_text:
                 current_text = " ".join(segment_text)
-                # Avoid consecutive duplicate segments from the same speaker
                 if (current_text != last_segment["text"] or 
                     speaker_label != last_segment["speaker"]):
                     final_segment = f"{speaker_label}: {current_text}"
@@ -165,6 +185,8 @@ async def process_audio_task(file_id: str, wav_file: str) -> None:
         logger.error(f"Error processing file {file_id}: {e}")
         with audio_processor.lock:
             audio_processor.results[file_id] = f"Error during transcription: {str(e)}"
+    finally:
+        audio_processor.cleanup_file(wav_file)
 
 @app.post("/transcribe/")
 async def transcribe(
@@ -176,8 +198,7 @@ async def transcribe(
     Returns a file ID immediately and processes the audio in the background.
     """
     try:
-        wav_file = await audio_processor.process_audio(file)
-        file_id = str(uuid.uuid4())
+        file_id, wav_file = await audio_processor.process_audio(file)
         
         background_tasks.add_task(process_audio_task, file_id, wav_file)
         
@@ -202,3 +223,13 @@ async def get_transcription_status(file_id: str) -> Dict[str, str]:
             "status": "completed",
             "transcription": transcription
         }
+
+# Cleanup on shutdown
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up temporary files on shutdown."""
+    try:
+        shutil.rmtree(audio_processor.temp_dir)
+        logger.info("Cleaned up temporary directory on shutdown")
+    except Exception as e:
+        logger.error(f"Failed to cleanup temporary directory: {e}")
