@@ -60,7 +60,6 @@
             color: #1a365d;
         }
 
-        /* Le reste du CSS reste inchangé */
         .drag-drop-zone {
             border: 2px dashed #e2e8f0;
             border-radius: 8px;
@@ -202,6 +201,19 @@
             font-weight: 500;
         }
 
+        .sentiment-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .sentiment-emoji {
+            font-size: 24px;
+        }
+
         @keyframes progress-animation {
             0% { transform: translateX(-100%); }
             100% { transform: translateX(100%); }
@@ -273,13 +285,16 @@
                         <h2>Résumé</h2>
                     </div>
                     <div id="summaryContent"></div>
+                    <div class="sentiment-container">
+                        <span class="sentiment-emoji" id="sentimentEmoji"></span>
+                        <span id="sentimentText"></span>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Le code JavaScript reste inchangé
         const API_BASE_URL = 'http://192.168.252.12';
         const OLLAMA_URL = 'http://192.168.252.12:11434/api/generate';
         
@@ -378,6 +393,53 @@
             summaryContent.textContent = summary;
         }
 
+        function displaySentiment(sentiment) {
+            const emojiElement = document.getElementById('sentimentEmoji');
+            const textElement = document.getElementById('sentimentText');
+            
+            // Mapping des sentiments vers les emojis et textes
+            const sentimentMap = {
+                'constructif': { emoji: '🤝', text: 'Conversation Constructive' },
+                'encourageant': { emoji: '👍', text: 'Conversation Encourageante' },
+                'collaboratif': { emoji: '🤝', text: 'Conversation Collaborative' },
+                'engagé': { emoji: '🔥', text: 'Conversation Engagée' },
+                'professionnel': { emoji: '💼', text: 'Conversation Professionnelle' },
+                'critique mais constructif': { emoji: '🧐', text: 'Conversation Critique mais constructive' },
+                'divergent': { emoji: '⚖️', text: 'Conversation Divergente' },
+                'tendu': { emoji: '😬', text: 'Conversation Tendue' },
+                'non collaboratif': { emoji: '🚫', text: 'Conversation Non collaborative' },
+                'neutre': { emoji: '😐', text: 'Conversation Neutre' },
+                'ambigu': { emoji: '❓', text: 'Conversation Ambiguë' },
+            };
+
+            const sentimentInfo = sentimentMap[sentiment.toLowerCase()] || { emoji: '😐', text: 'Sentiment indéterminé' };
+
+            
+            emojiElement.textContent = sentimentInfo.emoji;
+            textElement.textContent = sentimentInfo.text;
+        }
+
+        async function analyzeSentiment(transcription) {
+            try {
+                const response = await fetch(OLLAMA_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: "llama3.1:70b",
+                        prompt: `Analyse le ton général de cette conversation professionnelle et classifie-le en fonction d'un des termes suivants (ne mets pas en forme le terme choisi, par exemple : "constructif", "professionnel", etc.). Réponds uniquement avec un de ces termes : "constructif", "encourageant", "collaboratif", "engagé", "professionnel", "critique mais constructif", "divergent", "tendu", "non collaboratif", "neutre" ou "ambigu". Ne donne aucune explication supplémentaire. Voici la conversation : ${transcription}`,
+                        stream: false
+                    })
+                });
+
+                if (!response.ok) throw new Error('Erreur lors de l\'analyse du sentiment');
+                const result = await response.json();
+                return result.response.trim().toLowerCase();
+            } catch (error) {
+                console.error('Erreur lors de l\'analyse du sentiment:', error);
+                throw error;
+            }
+        }
+
         async function generateSummary(transcription) {
             try {
                 const response = await fetch(OLLAMA_URL, {
@@ -385,7 +447,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         model: "llama3.1:70b",
-                        prompt: `Résumez la conversation suivante de manière concise et professionnelle: ${transcription}`,
+                        prompt: `Résume la conversation suivante de manière concise, claire et professionnelle. Ne donne aucune information supplémentaire ni hors contexte, et veille à utiliser uniquement le français : ${transcription}`,
                         stream: false
                     })
                 });
@@ -429,10 +491,14 @@
                         displayTranscription(status.transcription);
 
                         try {
-                            const summary = await generateSummary(status.transcription);
+                            const [summary, sentiment] = await Promise.all([
+                                generateSummary(status.transcription),
+                                analyzeSentiment(status.transcription)
+                            ]);
                             displaySummary(summary);
+                            displaySentiment(sentiment);
                         } catch (error) {
-                            displayError('Erreur lors de la génération du résumé');
+                            displayError('Erreur lors de la génération du résumé ou de l\'analyse du sentiment');
                         }
                     } else if (attempts >= maxAttempts) {
                         clearInterval(currentPollingInterval);
