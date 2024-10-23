@@ -34,7 +34,7 @@ class AudioProcessor:
         try:
             self.model = whisper.load_model("large")
             self.pipeline = Pipeline.from_pretrained(
-                "nairaxo/speaker-segmentation-fine-tuned-ary",
+                "pyannote/speaker-diarization-3.1",
                 use_auth_token="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"
             )
             self.pipeline.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
